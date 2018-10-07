@@ -13,7 +13,7 @@
 #define MQTT_TOPIC_ALARM_GET "get/home/lock"
 #define MQTT_TOPIC_ALARM_SET "set/home/lock"
 
-#define MQTT_ALARM_PUBLISH_STATUS_INTERVAL 300000
+#define MQTT_ALARM_PUBLISH_STATUS_INTERVAL 600000
 #define MQTT_SUNBLIND_PUBLISH_STATUS_INTERVAL 300000
 
 SomfyBlind *smallBlind1 = new SomfyBlind("smallBedroomSunblind1",

@@ -134,13 +134,13 @@ void sunblindSendToBlind(SomfyBlind *blind, String payload) {
 
   const char *powerOn = status.get<const char *>("powerOn");
 
-  PRINT("BLIND: Power On: ");
-  PRINTLN(powerOn);
-
   // Publish the status here to have quck feedback
   const char *messageId = root.get<const char *>("messageId");
 
-  if (powerOn) {
+  if (powerOn) { // check if powerOn is present in the payload
+    PRINT("BLIND: Power On: ");
+    PRINTLN(powerOn);
+
     if (strcasecmp(powerOn, "true") == 0) {
       blind->blindPowerOn = true;
       sunblindPublishStatus(true, messageId, blind->mqttTopic);
@@ -169,8 +169,8 @@ void sunblindSendToBlind(SomfyBlind *blind, String payload) {
       PRINT(action);
       PRINTLN("'");
     }
-    sunblindPublishStatus(true, messageId, blind->mqttTopic);
   }
+  sunblindPublishStatus(true, messageId, blind->mqttTopic);
 }
 
 void sunblindMqttCallback(char *topic, String payload) {
