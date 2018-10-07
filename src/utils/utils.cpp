@@ -66,7 +66,7 @@ LinkedList<String>Utils::splitStringToList(String data, char separator) {
   size_t dataCount            = countElementsInString(data);
   LinkedList<String> dataList =  LinkedList<String>();
 
-  for (int i = 0; i < dataCount; ++i) {
+  for (unsigned int i = 0; i < dataCount; ++i) {
     dataList.add(getValue(data, i));
   }
   return dataList;

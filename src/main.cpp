@@ -1,12 +1,24 @@
+/*
+   Easiest way to make it work for you:
+   1. Uncomment and modify the sunblindManualInitialConfiguration() with:
+    - Unique remote number
+    - Choose a starting point for the rolling code. Any unsigned int works, 1 is a good start
+    - Upload the sketch to the sunblindManualInitialConfiguration() is executed
+    - Comment the sunblindManualInitialConfiguration() and upload the sketch.
+   2. Long-press the program button of YOUR ACTUAL REMOTE until your blind goes up and down slightly
+    - send {"status":{"action":"prog"}} to the MQTT channel of the remote
+ */
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <MqttClient.h>
 #include <FotaClient.h>
 #include <ESPWifiClient.h>
 #include <RemotePrint.h>
+#include <SimpleTimer.h>
 #include "settings.h"
 #include "ParadoxControlPanel/ParadoxControlPanel.h"
 
+SimpleTimer espRestartTimer;
 ESPWifiClient *wifiClient = new ESPWifiClient(WIFI_SSID, WIFI_PASS);
 FotaClient    *fotaClient = new FotaClient(DEVICE_NAME);
 MqttClient    *mqttClient = NULL;
@@ -53,6 +65,11 @@ SomfyBlind* getBlindFromTopic(String topic) {
   PRINT("BLIND: Could not find Blind with topic: ");
   PRINTLN(topic);
   return NULL;
+}
+
+void restartEsp() {
+  PRINTLN("ESP: Restaring ESP due to schedule");
+  ESP.restart();
 }
 
 void sunblindPublishStatus(bool forcePublish = false,
@@ -174,18 +191,17 @@ void sunblindMqttCallback(char *topic, String payload) {
   }
 }
 
-void SunblindManualInitialConfiguration() {
+void sunblindManualInitialConfiguration() {
   SomfyBlind *blind = NULL;
 
-  blind                       = &blinds[0];
-  blind->remoteControllSerial = 0x111000;
-  blind->rollingCode          = 10;
-  PRINTLN("rollingCode: " + String(blind->rollingCode));
-  PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
-  blind->save();
+  // blind                       = &blinds[0];
+  // blind->remoteControllSerial = 0x111000;
+  // blind->rollingCode          = 10;
+  // PRINTLN("rollingCode: " + String(blind->rollingCode));
+  // PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
+  // blind->save();
 
   // ========================
-
   // blind                       = &blinds[1];
   // blind->remoteControllSerial = 0x111001;
   // blind->rollingCode          = 10;
@@ -200,6 +216,31 @@ void SunblindManualInitialConfiguration() {
   // PRINTLN("rollingCode: " + String(blind->rollingCode));
   // PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
   // blind->save();
+
+  // ========================
+  // blind                       = &blinds[3];
+  // blind->remoteControllSerial = 0x111003;
+  // blind->rollingCode          = 10;
+  // PRINTLN("rollingCode: " + String(blind->rollingCode));
+  // PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
+  // blind->save();
+
+
+  // ========================
+  // blind                       = &blinds[4];
+  // blind->remoteControllSerial = 0x111004;
+  // blind->rollingCode          = 10;
+  // PRINTLN("rollingCode: " + String(blind->rollingCode));
+  // PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
+  // blind->save();
+
+  // ========================
+  blind                       = &blinds[5];
+  blind->remoteControllSerial = 0x111005;
+  blind->rollingCode          = 10;
+  PRINTLN("rollingCode: " + String(blind->rollingCode));
+  PRINTLN("remoteControllSerial: " + String(blind->remoteControllSerial));
+  blind->save();
 
   for (int i = 0; i < BLINDS_COUNT; i++) {
     SomfyBlind *blind = &blinds[i];
@@ -273,7 +314,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length) {
 
 void alarmGetControlPanelStatus() {
   if  ((alarmLastAttempt != 0) &&
-       (millis() <= alarmLastAttempt + MQTT_ALARM_PUBLISH_STATUS_INTERVAL)) {
+       (millis() <= alarmLastAttempt + (unsigned int)MQTT_ALARM_PUBLISH_STATUS_INTERVAL)) {
     return;
   }
   QueueItem item;
@@ -296,8 +337,9 @@ void setup() {
                               MQTT_SERVER_FINGERPRINT,
                               mqttCallback);
   fotaClient->init();
+  espRestartTimer.setInterval(DEVICE_RESTART_ESP_TIME, restartEsp);
 
-  // manualInitialConfiguration();
+  // sunblindManualInitialConfiguration();
 }
 
 void loop() {
@@ -311,4 +353,5 @@ void loop() {
   alarmGetControlPanelStatus();
   alarmPublishStatus();
   controlPanel->process();
+  espRestartTimer.run();
 }

@@ -27,7 +27,6 @@ String CryptUtil::rc4Paradox(String text, String key)
   }
 
   // (PNRG) pseudo-random generator algorithm
-  unsigned char j  = 0;
   unsigned char x2 = 0;
   y = 0;
 

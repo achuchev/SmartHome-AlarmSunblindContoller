@@ -123,6 +123,7 @@ bool ParadoxControlPanel::process() {
     this->queueItems.remove(0);
     return true;
   }
+  return true;
 }
 
 bool ParadoxControlPanel::logout(bool silentLogOut) {
@@ -482,8 +483,8 @@ bool ParadoxControlPanel::httpLoginAuthenticate() {
 bool ParadoxControlPanel::httpLoginWaitForModuleInit(int timeout,
                                                      int poolDelay) {
   PRINTLN("Paradox:\tWaiting for IP module initialization.");
-  long endTime    = millis() + timeout;
-  int  loginStage = 0;
+  unsigned long endTime = millis() + timeout;
+  int loginStage        = 0;
 
   while (millis() < endTime) {
     String httpResponseBody = httpRequestGet("waitlive.html");
