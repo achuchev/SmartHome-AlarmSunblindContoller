@@ -15,10 +15,12 @@
 #include <ESPWifiClient.h>
 #include <RemotePrint.h>
 #include <SimpleTimer.h>
+#include <RCSwitch.h>
 #include "settings.h"
 #include "ParadoxControlPanel/ParadoxControlPanel.h"
 
 SimpleTimer espRestartTimer;
+RCSwitch    rcReceiver    = RCSwitch();
 ESPWifiClient *wifiClient = new ESPWifiClient(WIFI_SSID, WIFI_PASS);
 FotaClient    *fotaClient = new FotaClient(DEVICE_NAME);
 MqttClient    *mqttClient = NULL;
@@ -340,6 +342,73 @@ void setup() {
   espRestartTimer.setInterval(DEVICE_RESTART_ESP_TIME, restartEsp);
 
   // sunblindManualInitialConfiguration();
+
+  rcReceiver.enableReceive(PIN_RF_RECEIVER_DATA);
+}
+
+boolean matchRCCode(unsigned long receivedValue, unsigned long buttonArray[]) {
+  for (uint8_t i = 0; i <= 3; ++i) {
+    if (buttonArray[i] == receivedValue) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void turnLamp(String mqttTopic, boolean isOn) {
+  String payload;
+
+  if (isOn) payload = "{\"status\":{\"powerOn\":true}}"; else {
+    payload = "{\"status\":\{\"powerOn\":false}}";
+  }
+  mqttClient->publish(mqttTopic, payload);
+}
+
+void rcSwitchLoop() {
+  if (rcReceiver.available()) {
+    unsigned long receivedValue = rcReceiver.getReceivedValue();
+    PRINT_D("RF Receiver: Code received: ");
+    PRINTLN_D(receivedValue);
+    rcReceiver.resetAvailable();
+
+    if (matchRCCode(receivedValue, rcButtonA1)) {
+      PRINTLN("RF Receiver: Button pressed: A1");
+      turnLamp(MQTT_TOPIC_LAMP_4_SET, true);
+    } else if (matchRCCode(receivedValue, rcButtonA2)) {
+      PRINTLN("RF Receiver: Button pressed: A2");
+      turnLamp(MQTT_TOPIC_LAMP_4_SET, false);
+    } else if (matchRCCode(receivedValue, rcButtonB1)) {
+      PRINTLN("RF Receiver: Button pressed: B1");
+      turnLamp(MQTT_TOPIC_LAMP_3_SET, true);
+    } else if (matchRCCode(receivedValue, rcButtonB2)) {
+      PRINTLN("RF Receiver: Button pressed: B2");
+      turnLamp(MQTT_TOPIC_LAMP_3_SET, false);
+    } else if (matchRCCode(receivedValue, rcButtonC1)) {
+      PRINTLN("RF Receiver: Button pressed: C1");
+      turnLamp(MQTT_TOPIC_LAMP_2_SET, true);
+    } else if (matchRCCode(receivedValue, rcButtonC2)) {
+      PRINTLN("RF Receiver: Button pressed: C2");
+      turnLamp(MQTT_TOPIC_LAMP_2_SET, false);
+    } else if (matchRCCode(receivedValue, rcButtonD1)) {
+      PRINTLN("RF Receiver: Button pressed: D1");
+      turnLamp(MQTT_TOPIC_LAMP_1_SET, true);
+    } else if (matchRCCode(receivedValue, rcButtonD2)) {
+      PRINTLN("RF Receiver: Button pressed: D2");
+      turnLamp(MQTT_TOPIC_LAMP_1_SET, false);
+    } else if (matchRCCode(receivedValue, rcButtonMaster1)) {
+      PRINTLN("RF Receiver: Button pressed: Master1");
+      turnLamp(MQTT_TOPIC_LAMP_1_SET, true);
+      turnLamp(MQTT_TOPIC_LAMP_2_SET, true);
+      turnLamp(MQTT_TOPIC_LAMP_3_SET, true);
+      turnLamp(MQTT_TOPIC_LAMP_4_SET, true);
+    } else if (matchRCCode(receivedValue, rcButtonMaster2)) {
+      PRINTLN("RF Receiver: Button pressed: Master2");
+      turnLamp(MQTT_TOPIC_LAMP_1_SET, false);
+      turnLamp(MQTT_TOPIC_LAMP_2_SET, false);
+      turnLamp(MQTT_TOPIC_LAMP_3_SET, false);
+      turnLamp(MQTT_TOPIC_LAMP_4_SET, false);
+    }
+  }
 }
 
 void loop() {
@@ -354,4 +423,5 @@ void loop() {
   alarmPublishStatus();
   controlPanel->process();
   espRestartTimer.run();
+  rcSwitchLoop();
 }
