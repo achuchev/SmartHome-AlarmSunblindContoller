@@ -5,7 +5,7 @@
 
 #define DEVICE_NAME "AlarmSunblindsController"
 
-#define DEVICE_RESTART_ESP_TIME 86400000 // 24 hours
+#define DEVICE_RESTART_ESP_TIME 43200000 // 12 hours
 #define PIN_RF_TRANSMITER_SOMFY_DATA D2
 #define PIN_RF_RECEIVER_DATA D6
 #define PIN_RF_RECEIVER_CS D7            // HIGH: Normal working; LOW: Sleep mode
