@@ -68,22 +68,27 @@ bool SomfyBlind::load() {
   }
 
   String content = blindFile.readString();
-  PRINTLN("SOMFY BLIND: File content: " + content);
+  PRINTLN_D("SOMFY BLIND: File content: " + content);
 
   const size_t bufferSize = JSON_OBJECT_SIZE(3) + 120;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& root = jsonBuffer.parseObject(content);
 
-  if (!root.success()) {
-    PRINTLN("SOMFY BLIND: Cannot parse the content of the file.");
-      #ifdef DEBUG_ENABLED
-    root.prettyPrintTo(Serial);
-      #endif // ifdef DEBUG_ENABLED
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  // JsonObject& root = jsonBuffer.parseObject(content);
+
+  DynamicJsonDocument  jsonDoc(bufferSize);
+  DeserializationError error = deserializeJson(jsonDoc, content);
+
+  if (error) {
+    PRINT_E("SOMFY BLIND: Cannot deserialize the content of the file. Error: ");
+    PRINTLN_E(error.c_str());
+    PRINTLN_E("The file content is: ");
+    PRINTLN_E(content)
     return false;
   }
+  JsonObject root = jsonDoc.as<JsonObject>();
 
-  int remoteControllSerial = root.get<int>("remoteControllSerial");
-  uint16_t rollingCode     = root.get<uint16_t>("rollingCode");
+  int remoteControllSerial = root["remoteControllSerial"];
+  uint16_t rollingCode     = root["rollingCode"];
 
   this->remoteControllSerial = remoteControllSerial;
   this->rollingCode          = rollingCode;
@@ -115,16 +120,20 @@ bool SomfyBlind::save() {
     return false;
   }
   const size_t bufferSize = JSON_OBJECT_SIZE(3);
-  DynamicJsonBuffer jsonBuffer(bufferSize);
 
-  JsonObject& root = jsonBuffer.createObject();
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  //
+  // JsonObject root = jsonBuffer.createObject();
+  DynamicJsonDocument root(bufferSize);
 
   root["remoteControllSerial"] = this->remoteControllSerial;
   root["rollingCode"]          = this->rollingCode;
 
   // convert to String
   String content;
-  root.printTo(content);
+  serializeJson(root, content);
+
+  // root.printTo(content);
   blindFile.print(content);
   blindFile.close();
   SPIFFS.end();

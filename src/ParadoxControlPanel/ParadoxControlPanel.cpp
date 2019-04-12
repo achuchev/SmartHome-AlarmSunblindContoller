@@ -165,13 +165,17 @@ QueueItem ParadoxControlPanel::queueActionGet() {
 }
 
 String ParadoxControlPanel::getAreasInfoForArm(const char *areaName, const char *messageId) {
-  int areaStatus          = 2; // armed
-  const size_t bufferSize = JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2);
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& root        = jsonBuffer.createObject();
-  JsonObject& status      = root.createNestedObject("status");
-  JsonArray & areasStatus = status.createNestedArray("areasStatus");
-  JsonObject& area        = areasStatus.createNestedObject();
+  int areaStatus = 2; // armed
+  // const size_t bufferSize = JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2);
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  // JsonObject& root        = jsonBuffer.createObject();
+  // JsonObject& status      = root.createNestedObject("status");
+  // JsonArray & areasStatus = status.createNestedArray("areasStatus");
+  // JsonObject& area        = areasStatus.createNestedObject();
+  DynamicJsonDocument root(JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2));
+  JsonObject status      = root.createNestedObject("status");
+  JsonArray  areasStatus = status.createNestedArray("areasStatus");
+  JsonObject area        = areasStatus.createNestedObject();
 
   area["name"]       = areaName;
   area["statusCode"] = areaStatus;
@@ -182,8 +186,10 @@ String ParadoxControlPanel::getAreasInfoForArm(const char *areaName, const char 
     root["messageId"] = messageId;
   }
 
-  String areasInfo = "";
-  root.printTo(areasInfo);
+  // convert to String
+  String areasInfo;
+  serializeJson(root, areasInfo);
+
   return areasInfo;
 }
 
@@ -323,12 +329,14 @@ bool ParadoxControlPanel::getStatus() {
                             JSON_ARRAY_SIZE(6) + JSON_OBJECT_SIZE(1) + 9 *
                             JSON_OBJECT_SIZE(4) + 2 * JSON_OBJECT_SIZE(5);
 
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& root        = jsonBuffer.createObject();
-  JsonObject& status      = root.createNestedObject("status");
-  JsonArray & areasStatus = status.createNestedArray("areasStatus");
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  // JsonObject& root        = jsonBuffer.createObject();
+  // JsonObject& status      = root.createNestedObject("status");
+  // JsonArray & areasStatus = status.createNestedArray("areasStatus");
+  DynamicJsonDocument root(bufferSize);
+  JsonObject status      = root.createNestedObject("status");
+  JsonArray  areasStatus = status.createNestedArray("areasStatus");
 
-  // tuka
   int zonesCount = Utils::countElementsInString(this->zonesNameStr);
 
   for (int idx = 0; idx < zonesCount; idx = idx + 2) {
@@ -342,38 +350,54 @@ bool ParadoxControlPanel::getStatus() {
     int areaIndex   = areaIndexStr.toInt();
     String zoneName = Utils::getValue(this->zonesNameStr, idx + 1);
 
-    JsonArray  *zonesInfo;
-    JsonObject *area;
+    JsonArray  zonesInfo;
+    JsonObject area;
     bool currentAreaExists = false;
 
     for (int i = 0; i < this->areasNameIndex.size(); ++i) {
-      area =
-        &status.get<JsonVariant>("areasStatus").as<JsonArray>().get<JsonVariant>(i).as<JsonObject&>();
-      String idStr = area->get<String>("id");
+      area = status["areasStatus"].as<JsonArray>().getElement(i).as<JsonObject>();
+
+      // area = status["areasStatus"].to<JsonArray>()[i].to<JsonObject>();
+      // area =   areasStatus[i].as<JsonObject>();;
+
+
+      // area =  &status.get<JsonVariant>("areasStatus").as<JsonArray>().get<JsonVariant>(i).as<JsonObject&>();
+      //    String idStr = area->get<String>("id");
+
+      // JsonArray areasStatus_temp =  status["areasStatus"];
+      //
+      // if (areasStatus_temp.size() <= 0) break;
+      //
+      // JsonObject area = areasStatus_temp.getElement(i);
+      //
+      // if (area.isNull()) break;
+
+      // String idStr = area["id"].as<int>();
 
       currentAreaExists = false;
 
-      if (idStr.toInt() == areaIndex) {
+      if (area["id"].as<int>() == areaIndex) {
         currentAreaExists = true;
         break;
       }
     }
 
     if (currentAreaExists) {
-      zonesInfo = &area->get<JsonVariant>("zonesInfo").as<JsonArray>();
+      zonesInfo = area["zonesInfo"];
     } else {
-      int areaStatus   = Utils::getValueInt(this->areasStatusStr, areaIndex - 1);
-      JsonObject& area = areasStatus.createNestedObject();
+      int areaStatus  = Utils::getValueInt(this->areasStatusStr, areaIndex - 1);
+      JsonObject area = areasStatus.createNestedObject();
       area["name"]       = this->areasNameIndex.get(areaIndex - 1).name;
       area["id"]         = areaIndex;
       area["statusCode"] = areaStatus;
       area["statusName"] = ParadoxControlPanel::getAreaStatusFriendlyName(areaStatus);
       area["isArmed"]    = ParadoxControlPanel::getAreaStatusIsArmed(areaStatus);
-      zonesInfo          = &area.createNestedArray("zonesInfo");
+      zonesInfo          = area.createNestedArray("zonesInfo");
     }
-    int zoneId           = (int)(idx / 2) + 1;
-    uint8_t zoneStatus   = Utils::getValueInt(this->zonesStatusStr, zoneId - 1);
-    JsonObject& zoneInfo = zonesInfo->createNestedObject();
+    int zoneId         = (int)(idx / 2) + 1;
+    uint8_t zoneStatus = Utils::getValueInt(this->zonesStatusStr, zoneId - 1);
+
+    JsonObject zoneInfo = zonesInfo.createNestedObject();
     zoneInfo["name"]       = zoneName;
     zoneInfo["id"]         = zoneId;
     zoneInfo["statusCode"] = zoneStatus;
@@ -382,7 +406,9 @@ bool ParadoxControlPanel::getStatus() {
   }
 
   this->areasInfoStr = "";
-  root.printTo(this->areasInfoStr);
+  serializeJson(root, this->areasInfoStr);
+
+  PRINTLN_D(this->areasInfoStr);
   return true;
 }
 
@@ -391,7 +417,7 @@ String ParadoxControlPanel::httpRequestGet(String location,
   String url = String("http://") + this->moduleHostname + "/" +
                location;
 
-  this->http.begin(url);
+  this->http.begin(this->wifiClient, url);
   this->http.setReuse(true);
   this->http.addHeader("Accept-Encoding", "identity");
   this->http.addHeader("Accept",

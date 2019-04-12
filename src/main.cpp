@@ -96,9 +96,13 @@ void sunblindPublishStatus(bool forcePublish = false,
       }
 
       const size_t bufferSize = JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3);
-      DynamicJsonBuffer jsonBuffer(bufferSize);
-      JsonObject& root   = jsonBuffer.createObject();
-      JsonObject& status = root.createNestedObject("status");
+
+      // DynamicJsonBuffer jsonBuffer(bufferSize);
+      // JsonObject& root   = jsonBuffer.createObject();
+      // JsonObject& status = root.createNestedObject("status");
+
+      DynamicJsonDocument root(bufferSize);
+      JsonObject status = root.createNestedObject("status");
 
       if (messageId != NULL) {
         root["messageId"] = messageId;
@@ -109,12 +113,13 @@ void sunblindPublishStatus(bool forcePublish = false,
 
       // convert to String
       String outString;
-      root.printTo(outString);
+      serializeJson(root, outString);
 
       // publish the message
       String topic = String("get");
       topic.concat(blind->mqttTopic);
-      mqttClient->publish(topic, outString);
+
+      // FIXME:  mqttClient->publish(topic, outString);
     }
     sunblindLastStatusMsgSentAt = now;
   }
@@ -124,38 +129,55 @@ void sunblindSendToBlind(SomfyBlind *blind, String payload) {
   PRINTLN("BLIND: Send to blind '" + blind->name + "''");
 
   const size_t bufferSize = JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(3) + 50;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& root   = jsonBuffer.parseObject(payload);
-  JsonObject& status = root.get<JsonObject&>("status");
 
-  if (!status.success()) {
-    PRINTLN_E("BLIND: JSON with \"status\" key not received.");
-    PRINTLN_E(payload);
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  // JsonObject& root   = jsonBuffer.parseObject(payload);
+  // JsonObject& status = root.get<JsonObject&>("status");
+
+
+  DynamicJsonDocument  jsonDoc(bufferSize);
+  DeserializationError error = deserializeJson(jsonDoc, payload);
+
+  if (error) {
+    PRINT_E("Failed to deserialize the received payload. Error: ");
+    PRINTLN_E(error.c_str());
+    PRINTLN_E("The payload is: ");
+    PRINTLN_E(payload)
+    return;
+  }
+  JsonObject root   = jsonDoc.as<JsonObject>();
+  JsonObject status = root["status"];
+
+  if (status.isNull()) {
+    PRINTLN_E(
+      "BLIND: The received payload is valid JSON, but \"status\" key is not found.");
+    PRINTLN_E("The payload is: ");
+    PRINTLN_E(payload)
     return;
   }
 
-  const char *powerOn = status.get<const char *>("powerOn");
+  JsonVariant powerOnJV = status["powerOn"];
+  const char *messageId = root["messageId"];
 
-  // Publish the status here to have quck feedback
-  const char *messageId = root.get<const char *>("messageId");
-
-  if (powerOn) { // check if powerOn is present in the payload
+  if (!powerOnJV.isNull()) {
+    bool powerOn = powerOnJV.as<bool>();
     PRINT("BLIND: Power On: ");
     PRINTLN(powerOn);
 
-    if (strcasecmp(powerOn, "true") == 0) {
-      blind->blindPowerOn = true;
-      sunblindPublishStatus(true, messageId, blind->mqttTopic);
+    blind->blindPowerOn = powerOn;
+    sunblindPublishStatus(true, messageId, blind->mqttTopic);
+
+    if (powerOn) {
       blind->remoteButtonUp();
     } else {
-      blind->blindPowerOn = false;
-      sunblindPublishStatus(true, messageId, blind->mqttTopic);
       blind->remoteButtonDown();
     }
   }
-  const char *action = status.get<const char *>("action");
+  JsonVariant actionJV = status["action"];
 
-  if (action) {
+  if (!actionJV.isNull()) {
+    const char *action = actionJV.as<const char *>();
+
     if (strcasecmp(action, "up") == 0) {
       blind->blindPowerOn = true;
       blind->remoteButtonUp();
@@ -255,12 +277,14 @@ void sunblindManualInitialConfiguration() {
 void alarmPublishStatus(const char *messageId = "", bool force = false, const char *areaName = "") {
   if (force == true) {
     String areasInfo = controlPanel->getAreasInfoForArm(areaName, messageId);
-    mqttClient->publish(MQTT_TOPIC_ALARM_GET, areasInfo);
+
+    // FIXME:   mqttClient->publish(MQTT_TOPIC_ALARM_GET, areasInfo);
   } else {
     String areasInfo = controlPanel->getLatestAreasInfo();
 
     if (areasInfo.length() != 0) {
-      mqttClient->publish(MQTT_TOPIC_ALARM_GET, areasInfo);
+      // FIXME:     mqttClient->publish(MQTT_TOPIC_ALARM_GET, areasInfo);
+      PRINTLN(areasInfo);
     }
   }
 }
@@ -269,30 +293,43 @@ void alarmMqttCallback(String payload) {
   PRINTLN("Paradox: Callback called.");
 
   const size_t bufferSize = JSON_OBJECT_SIZE(1) + JSON_OBJECT_SIZE(2) + 90;
-  DynamicJsonBuffer jsonBuffer(bufferSize);
-  JsonObject& root   = jsonBuffer.parseObject(payload);
-  JsonObject& status = root.get<JsonObject&>("status");
 
-  if (!root.success() || !status.success()) {
-    PRINTLN("Paradox: Invalid JSON received.");
-  #ifdef DEBUG_ENABLED
-    root.prettyPrintTo(Serial);
-  #endif // ifdef DEBUG_ENABLED
+  // DynamicJsonBuffer jsonBuffer(bufferSize);
+  // JsonObject& root   = jsonBuffer.parseObject(payload);
+  // JsonObject& status = root.get<JsonObject&>("status");
+
+  DynamicJsonDocument  jsonDoc(bufferSize);
+  DeserializationError error = deserializeJson(jsonDoc, payload);
+
+  if (error) {
+    PRINT_E("Failed to deserialize the received payload. Error: ");
+    PRINTLN_E(error.c_str());
+    PRINTLN_E("The payload is: ");
+    PRINTLN_E(payload)
     return;
   }
-  const char *armChar = status.get<const char *>("arm");
+  JsonObject root   = jsonDoc.as<JsonObject>();
+  JsonObject status = root["status"];
 
-  if (armChar) {
-    QueueItem item;
-    item.areaName = armChar;
+  if (status.isNull()) {
+    PRINTLN_E(
+      "Paradox: The received payload is valid JSON, but \"status\" key is not found.");
+    PRINTLN_E("The payload is: ");
+    PRINTLN_E(payload)
+    return;
+  }
+
+  JsonVariant armJV = status["arm"];
+
+  if (!armJV.isNull()) {
+    const char *arm = armJV.as<const char *>();
+    QueueItem   item;
+    item.areaName = arm;
     item.action   = Action::armArea;
     controlPanel->queueActionAdd(item);
 
-    const char *messageId = root.get<const char *>("messageId");
-    alarmPublishStatus(messageId, true, armChar);
-
-    // TODO: We need the loop here to make sure that the message will be sent asap
-    mqttClient->loop();
+    const char *messageId = root["messageId"];
+    alarmPublishStatus(messageId, true, arm);
   }
 }
 
@@ -361,7 +398,8 @@ void turnLamp(String mqttTopic, boolean isOn) {
   if (isOn) payload = "{\"status\":{\"powerOn\":true}}"; else {
     payload = "{\"status\":\{\"powerOn\":false}}";
   }
-  mqttClient->publish(mqttTopic, payload);
+
+  // FIXME:   mqttClient->publish(mqttTopic, payload);
 }
 
 void rcSwitchLoop() {
@@ -415,10 +453,10 @@ void loop() {
   wifiClient->reconnectIfNeeded();
   RemotePrint::instance()->handle();
   fotaClient->loop();
-  mqttClient->loop();
+
+  // mqttClient->loop();
   sunblindPublishStatus();
 
-  // alarmMqttClient->loop();
   alarmGetControlPanelStatus();
   alarmPublishStatus();
   controlPanel->process();
