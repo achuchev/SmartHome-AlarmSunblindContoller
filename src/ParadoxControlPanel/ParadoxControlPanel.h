@@ -3,6 +3,7 @@
 
 #include "Arduino.h"
 #include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 #include <LinkedList.h>
 
 enum ProcessStatus {
@@ -72,6 +73,7 @@ private:
   static String getZoneStatusFriendlyName(uint8_t status);
 
   HTTPClient http;
+  WiFiClient wifiClient;
   String lastUrl;
   String sessionId                        = "";
   String moduleHostname                   = "";

@@ -416,12 +416,12 @@ void loop() {
   RemotePrint::instance()->handle();
   fotaClient->loop();
   mqttClient->loop();
+
   sunblindPublishStatus();
 
-  // alarmMqttClient->loop();
-  alarmGetControlPanelStatus();
-  alarmPublishStatus();
-  controlPanel->process();
+  // alarmGetControlPanelStatus();
+  // alarmPublishStatus();
+  // controlPanel->process();
   espRestartTimer.run();
   rcSwitchLoop();
 }

@@ -391,7 +391,7 @@ String ParadoxControlPanel::httpRequestGet(String location,
   String url = String("http://") + this->moduleHostname + "/" +
                location;
 
-  this->http.begin(url);
+  this->http.begin(this->wifiClient, url);
   this->http.setReuse(true);
   this->http.addHeader("Accept-Encoding", "identity");
   this->http.addHeader("Accept",
